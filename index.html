@@ -108,6 +108,39 @@
 
       loadingBar.style.display = "block";
 
+      // Gzip workaround for GitHub Pages
+const originalFetch = window.fetch.bind(window);
+
+window.fetch = async function(input, init) {
+  const response = await originalFetch(input, init);
+  const requestUrl = typeof input === "string" ? input : input.url;
+  const pathname = new URL(requestUrl, location.href).pathname;
+
+  if (pathname.endsWith(".gz")) {
+    const headers = new Headers(response.headers);
+    headers.delete("content-encoding");
+    headers.delete("content-length");
+
+    if (pathname.endsWith(".framework.js.gz")) {
+      headers.set("content-type", "application/javascript");
+    } else if (pathname.endsWith(".wasm.gz")) {
+      headers.set("content-type", "application/wasm");
+    } else {
+      headers.set("content-type", "application/octet-stream");
+    }
+
+    return new Response(
+      response.body.pipeThrough(new DecompressionStream("gzip")),
+      {
+        status: response.status,
+        statusText: response.statusText,
+        headers: headers
+      }
+    );
+  }
+
+  return response;
+};
       var script = document.createElement("script");
       script.src = loaderUrl;
       script.onload = () => {
